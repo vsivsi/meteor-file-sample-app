@@ -6,4 +6,4 @@ To set-up, make sure you have [meteorite](https://atmospherejs.com/docs/installi
 
 Then just run `mrt` in this directory and then once the app server is running, point your browser at `http://localhost:3000/`.
 
-For a more advanced example that integrates uses the `jobCollection` package to automatically create and use thumbnails for uploaded images, see: https://github.com/vsivsi/meteor-file-job-sample-app
+For a more advanced example that integrates uses `jobCollection` package to automatically create and use thumbnails for uploaded images, see: https://github.com/vsivsi/meteor-file-job-sample-app
