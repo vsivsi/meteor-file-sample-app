@@ -14,7 +14,10 @@
 <template name="collTest">
   <div class="container panel">
     <h3>fileCollection Test App</h3>
-    <span class="pull-right text-info">UserId: {{userId}} Token: {{loginToken}}</span>
+    {{#if currentUser}}
+      <span class="pull-right"><b>UserId:</b> <span class="text-info">{{userId}}</span>
+      <b>Token:</b> <span class="text-info">{{loginToken}}</span></span>
+    {{/if}}
     <div class="loginTemp">
       {{> loginButtons align="right"}}
     </div>
