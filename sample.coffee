@@ -68,6 +68,14 @@ if Meteor.isClient
    #####################
    # UI template helpers
 
+   shorten = (name, w = 16) ->
+      w++ if w % 2
+      w = (w-2)/2
+      if name.length > w
+         name[0..w] + '...' + name[-w-1..-1]
+      else
+         name
+
    Template.collTest.events
       # Wire up the event to remove a file by clicking the `X`
       'click .del-file': (e, t) ->
@@ -77,6 +85,9 @@ if Meteor.isClient
    Template.collTest.dataEntries = () ->
       # Reactively populate the table
       myData.find({})
+
+   Template.collTest.shortFilename = (w = 16) ->
+      shorten this.filename, w
 
    Template.collTest.owner = () ->
       this.metadata?._auth?.owner
