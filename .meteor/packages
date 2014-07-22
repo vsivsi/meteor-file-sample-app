@@ -9,6 +9,5 @@ bootstrap-3
 accounts-ui
 accounts-password
 fileCollection
-jobCollection
 jquery-cookie
 numeral
