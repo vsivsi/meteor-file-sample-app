@@ -8,6 +8,7 @@ coffeescript
 bootstrap-3
 accounts-ui
 accounts-password
-fileCollection
 jquery-cookie
 numeral
+vsivsi:file-collection
+
