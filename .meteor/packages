@@ -5,10 +5,10 @@
 
 standard-app-packages
 coffeescript
-bootstrap-3
 accounts-ui
 accounts-password
 jquery-cookie
 numeral
 vsivsi:file-collection
+mizzao:bootstrap-3
 
