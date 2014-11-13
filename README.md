@@ -1,6 +1,8 @@
 ## file-collection Sample App
 
-Note! This version of the sample app requires Meteor 0.9 or above, as it uses the new package format.
+This is a sample application demonstrating the use of the Meteor [file-collection](https://atmospherejs.com/vsivsi/file-collection) package.
+
+Note! This version of the sample app uses Meteor 1.0.0
 
 This demo app uses file-collection's built-in support for [Resumable.js](http://www.resumablejs.com/) to allow drag and drop uploading of files. Beyond that, it presents a simple image management grid with basic metadata, user acounts with file ownership, previews of images with click to load, and the ability to download or delete files.
 
