@@ -9,6 +9,6 @@ accounts-ui
 accounts-password
 mizzao:bootstrap-3
 benjaminrh:jquery-cookie
-mrt:numeral
+numeral:numeral
 vsivsi:file-collection
 
