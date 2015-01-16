@@ -1,6 +1,6 @@
 ############################################################################
 #     Copyright (C) 2014-2015 by Vaughn Iverson
-#     fileCollection is free software released under the MIT/X11 license.
+#     meteor-file-sample-app is free software released under the MIT/X11 license.
 #     See included LICENSE file for details.
 ############################################################################
 
@@ -60,7 +60,7 @@ if Meteor.isClient
 
    # Set up an autorun to keep the X-Auth-Token cookie up-to-date and
    # to update the subscription when the userId changes.
-   Deps.autorun () ->
+   Tracker.autorun () ->
       userId = Meteor.userId()
       Meteor.subscribe 'allData', userId
       $.cookie 'X-Auth-Token', Accounts._storedLoginToken()
