@@ -83,6 +83,7 @@ if Meteor.isClient
          myData.remove {_id: this._id}
 
    Template.collTest.helpers
+
       dataEntries: () ->
          # Reactively populate the table
          myData.find({})
@@ -99,7 +100,7 @@ if Meteor.isClient
       link: () ->
          myData.baseURL + "/" + this.md5
 
-      uploadStatus = () ->
+      uploadStatus: () ->
          percent = Session.get "#{this._id}"
          unless percent?
             "Processing..."
