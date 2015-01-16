@@ -82,49 +82,50 @@ if Meteor.isClient
          # Just the remove method does it all
          myData.remove {_id: this._id}
 
-   Template.collTest.dataEntries = () ->
-      # Reactively populate the table
-      myData.find({})
+   Template.collTest.helpers
+      dataEntries: () ->
+         # Reactively populate the table
+         myData.find({})
 
-   Template.collTest.shortFilename = (w = 16) ->
-      shorten this.filename, w
+      shortFilename: (w = 16) ->
+         shorten this.filename, w
 
-   Template.collTest.owner = () ->
-      this.metadata?._auth?.owner
+      owner: () ->
+         this.metadata?._auth?.owner
 
-   Template.collTest.id = () ->
-      "#{this._id}"
+      id: () ->
+         "#{this._id}"
 
-   Template.collTest.link = () ->
-      return myData.baseURL + "/" + this.md5
+      link: () ->
+         myData.baseURL + "/" + this.md5
 
-   Template.collTest.uploadStatus = () ->
-      percent = Session.get "#{this._id}"
-      unless percent?
-         "Processing..."
-      else
-         "Uploading..."
+      uploadStatus = () ->
+         percent = Session.get "#{this._id}"
+         unless percent?
+            "Processing..."
+         else
+            "Uploading..."
 
-   Template.collTest.formattedLength = () ->
-      numeral(this.length).format('0.0b')
+      formattedLength: () ->
+         numeral(this.length).format('0.0b')
 
-   Template.collTest.uploadProgress = () ->
-      percent = Session.get "#{this._id}"
+      uploadProgress: () ->
+         percent = Session.get "#{this._id}"
 
-   Template.collTest.isImage = () ->
-      types =
-         'image/jpeg': true
-         'image/png': true
-         'image/gif': true
-         'image/tiff': true
-      types[this.contentType]?
+      isImage: () ->
+         types =
+            'image/jpeg': true
+            'image/png': true
+            'image/gif': true
+            'image/tiff': true
+         types[this.contentType]?
 
-   Template.collTest.loginToken = () ->
-      Meteor.userId()
-      Accounts._storedLoginToken()
+      loginToken: () ->
+         Meteor.userId()
+         Accounts._storedLoginToken()
 
-   Template.collTest.userId = () ->
-      Meteor.userId()
+      userId: () ->
+         Meteor.userId()
 
 ############################################################
 # Server-only code
