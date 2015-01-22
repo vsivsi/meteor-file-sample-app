@@ -7,7 +7,7 @@ standard-app-packages
 coffeescript
 accounts-ui
 accounts-password
-mizzao:bootstrap-3
+twbs:bootstrap
 benjaminrh:jquery-cookie
 numeral:numeral
 vsivsi:file-collection
