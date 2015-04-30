@@ -69,10 +69,10 @@ if Meteor.isClient
    # UI template helpers
 
    shorten = (name, w = 16) ->
-      w++ if w % 2
-      w = (w-2)/2
-      if name.length > w
-         name[0..w] + '...' + name[-w-1..-1]
+      w += w % 4
+      w = (w-4)/2
+      if name.length > 2*w
+         name[0..w] + '…' + name[-w-1..-1]
       else
          name
 
