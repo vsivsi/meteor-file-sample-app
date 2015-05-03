@@ -9,7 +9,7 @@
 # Default collection name is 'fs'
 myData = FileCollection({
    resumable: true,     # Enable the resumable.js compatible chunked file upload interface
-   http: [ { method: 'get', path: '/:md5', lookup: (params, query) -> return { md5: params.md5 }}]}
+   http: [ { method: 'get', path: '/md5/:md5', lookup: (params, query) -> return { md5: params.md5 }}]}
    # Define a GET API that uses the md5 sum id files
 )
 
@@ -98,7 +98,7 @@ if Meteor.isClient
          "#{this._id}"
 
       link: () ->
-         myData.baseURL + "/" + this.md5
+         myData.baseURL + "/md5/" + this.md5
 
       uploadStatus: () ->
          percent = Session.get "#{this._id}"
