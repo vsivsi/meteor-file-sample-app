@@ -90,7 +90,7 @@ if Meteor.isClient
 
       shortFilename: (w = 16) ->
          if this.filename?.length
-         shorten this.filename, w
+            shorten this.filename, w
          else
             "(no filename)"
 
