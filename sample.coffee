@@ -89,7 +89,10 @@ if Meteor.isClient
          myData.find({})
 
       shortFilename: (w = 16) ->
+         if this.filename?.length
          shorten this.filename, w
+         else
+            "(no filename)"
 
       owner: () ->
          this.metadata?._auth?.owner
