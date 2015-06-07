@@ -19,13 +19,16 @@ myData = FileCollection({
 
 if Meteor.isClient
 
+   # This assigns a file drop zone to the "file table"
+   # once DOM is ready so jQuery can see it
+   Template.collTest.onRendered ->
+     myData.resumable.assignDrop $('.fileDrop')
+     return
+
    Meteor.startup () ->
 
       ################################
       # Setup resumable.js in the UI
-
-      # This assigns a file drop zone to the "file table"
-      myData.resumable.assignDrop $(".fileDrop")
 
       # When a file is added
       myData.resumable.on 'fileAdded', (file) ->
