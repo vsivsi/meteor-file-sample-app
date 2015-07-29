@@ -9,7 +9,7 @@
 # Default collection name is 'fs'
 myData = FileCollection({
    resumable: true,     # Enable the resumable.js compatible chunked file upload interface
-   resumableIndexName: 'test',  # Don't use the default MongoDB index name, which is 94 chars long  
+   resumableIndexName: 'test',  # Don't use the default MongoDB index name, which is 94 chars long
    http: [ { method: 'get', path: '/md5/:md5', lookup: (params, query) -> return { md5: params.md5 }}]}
    # Define a GET API that uses the md5 sum id files
 )
@@ -79,6 +79,16 @@ if Meteor.isClient
          name[0..w] + '…' + name[-w-1..-1]
       else
          name
+
+   truncateId = (id, length = 6) ->
+      if id
+         if typeof id is 'object'
+            id = "#{id.valueOf()}"
+         "#{id.substr(0,6)}…"
+      else
+         ""
+
+   Template.registerHelper "truncateId", truncateId
 
    Template.collTest.events
       # Wire up the event to remove a file by clicking the `X`

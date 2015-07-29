@@ -28,17 +28,17 @@ template(name="collTest")
           th ID
           th Owner
           th Size
-          th Type
-          th Checksum
+          th MIME Type
+          th MD5
           th Preview
       tbody
         each dataEntries
           tr
             td
-              a(href="{{link}}?download=true") {{shortFilename 16}}
+              a(href="{{link}}?download=true") {{shortFilename 56}}
               button.ui.mini.basic.icon.right.floated.button.close.del-file(type="button" aria-hidden="true")
                 i.remove.icon
-            td #{id}
+            td {{truncateId id}}
             td
               if owner
                 | #{owner}
@@ -49,11 +49,13 @@ template(name="collTest")
                 | #{formattedLength}
               else
                 | #{uploadStatus}
-                div.progress
-                  div.progress-bar(role="progressbar" min-width="60px" aria-valuenow="{{uploadProgress}}" aria-valuemin="0" aria-valuemax="100" style="width: {{uploadProgress}}%;")
-                    span.text-muted #{uploadProgress}%
+                br
+                | #{uploadProgress}% complete
+                br
+                div.ui.bottom.attached.indicating.progress(data-percent="{{uploadProgress}}")
+                  div.bar(style="transition-duration: 100ms; width: {{uploadProgress}}%;")
             td #{contentType}
-            td #{md5}
+            td {{truncateId md5}}
             td
               if isImage
                 a(href="{{link}}")
