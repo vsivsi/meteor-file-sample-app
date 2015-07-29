@@ -7,8 +7,11 @@ standard-app-packages
 coffeescript
 accounts-ui
 accounts-password
+stylus
+mquandalle:jade
 twbs:bootstrap
+# flemay:less-autoprefixer
+# semantic:ui
 benjaminrh:jquery-cookie
 numeral:numeral
 vsivsi:file-collection
-

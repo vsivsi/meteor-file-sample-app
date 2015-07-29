@@ -35,6 +35,8 @@ minifiers@1.1.5
 minimongo@1.0.8
 mobile-status-bar@1.0.3
 mongo@1.1.0
+mquandalle:jade@0.4.3
+mquandalle:jade-compiler@0.4.3
 npm-bcrypt@0.7.8_2
 numeral:numeral@1.5.3
 observe-sequence@1.0.6
@@ -52,6 +54,7 @@ spacebars@1.0.6
 spacebars-compiler@1.0.6
 srp@1.0.3
 standard-app-packages@1.0.5
+stylus@1.0.7
 templating@1.1.1
 tracker@1.0.7
 twbs:bootstrap@3.3.5

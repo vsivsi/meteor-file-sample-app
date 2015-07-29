@@ -1,0 +1,65 @@
+head
+  meta(charset="utf-8")
+  meta(http-equiv="X-UA-Compatible" content="IE=edge,chrome=1")
+  title fileCollection test app
+  meta(name="description" content="")
+  meta(name="viewport" content="width=device-width")
+
+body
+  div(id="fileDropID")
+    +collTest
+
+template(name="collTest")
+  div.container.panel
+    h3 file-collection Test App
+    if currentUser
+      span.pull-right
+        b UserId:
+        span.text-info #{userId}
+        b Token:
+        span.text-info #{loginToken}
+    div.loginTemp
+      +loginButtons align="right"
+  div.container.panel.fileDrop
+    table.table.table-bordered.table-striped
+      thead
+        tr
+          th Name
+          th ID
+          th Owner
+          th Size
+          th Type
+          th Checksum
+          th Preview
+      tbody
+        each dataEntries
+          tr
+            td
+              a(href="{{link}}?download=true") {{shortFilename 16}}
+              button.close.del-file(type="button" aria-hidden="true") &times;
+            td #{id}
+            td
+              if owner
+                | #{owner}
+              else
+                span.text-muted No owner
+            td
+              if length
+                | #{formattedLength}
+              else
+                | #{uploadStatus}
+                div.progress
+                  div.progress-bar(role="progressbar" min-width="60px" aria-valuenow="{{uploadProgress}}" aria-valuemin="0" aria-valuemax="100" style="width: {{uploadProgress}}%;")
+                    span.text-muted #{uploadProgress}%
+            td #{contentType}
+            td #{md5}
+            td
+              if isImage
+                a(href="{{link}}")
+                  img.img-thumbnail(alt="[ preview of {{shortFilename 16}} will display here ]" src="{{link}}" width="150")
+              else
+                span.text-muted No preview
+        else
+          tr
+            td(colspan="20" align=center)
+              span.text-info No files in collection, drag one here to upload
