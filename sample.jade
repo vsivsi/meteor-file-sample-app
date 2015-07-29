@@ -6,12 +6,12 @@ head
   meta(name="viewport" content="width=device-width")
 
 body
-  div(id="fileDropID")
+  div.ui.container(id="fileDropID")
     +collTest
 
 template(name="collTest")
-  div.container.panel
-    h3 file-collection Test App
+  div.ui.segment
+    h3.ui.header file-collection Test App
     if currentUser
       span.pull-right
         b UserId:
@@ -20,8 +20,8 @@ template(name="collTest")
         span.text-info #{loginToken}
     div.loginTemp
       +loginButtons align="right"
-  div.container.panel.fileDrop
-    table.table.table-bordered.table-striped
+  div.ui.segment.fileDrop
+    table.ui.celled.striped.table
       thead
         tr
           th Name
@@ -36,7 +36,8 @@ template(name="collTest")
           tr
             td
               a(href="{{link}}?download=true") {{shortFilename 16}}
-              button.close.del-file(type="button" aria-hidden="true") &times;
+              button.ui.mini.basic.icon.right.floated.button.close.del-file(type="button" aria-hidden="true")
+                i.remove.icon
             td #{id}
             td
               if owner
@@ -61,5 +62,5 @@ template(name="collTest")
                 span.text-muted No preview
         else
           tr
-            td(colspan="20" align=center)
-              span.text-info No files in collection, drag one here to upload
+            td.center.aligned(colspan="20")
+              span.text-info No files in collection, drag some here to upload
