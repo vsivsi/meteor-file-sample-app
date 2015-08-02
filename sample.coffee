@@ -190,3 +190,48 @@ if Meteor.isServer
             if file.metadata?._auth?.owner and userId isnt file.metadata._auth.owner
                return false
             true
+
+      addedFile = (file) ->
+        # Check if this blob exists
+        console.dir file
+        str = myData.findOneStream({ md5: file.md5 }).pipe(myData.gbs.blobWriter({ type: 'blob', size: file.length, hashFormat: 'hex' }))
+        str.on 'data', Meteor.bindEnvironment (data) ->
+          writeDone = (err, id) ->
+            console.log "#{data.hash} written! as #{id}", err
+            br = myData.gbs.blobReader()
+            os = myData.upsertStream
+              filename: "_#{file.filename}"
+              , (err, id) -> console.log "Restored #{id}"
+            myData.findOneStream({ filename: data.hash })?.pipe(br)?.pipe(os)
+          console.dir data
+          unless myData.findOne { filename: data.hash }
+            bw = myData.gbs.blobWriter
+              type: 'blob'
+              size: file.length
+              hashFormat: 'hex'
+              hashCallback: (obj) -> console.dir obj
+            os = myData.upsertStream
+              filename: data.hash
+              metadata:
+                _Git:
+                  type: 'blob'
+                  size: file.length
+                  md5: file.md5
+              , writeDone
+            myData.findOneStream({ md5: file.md5 })?.pipe(bw)?.pipe(os)
+
+      changedFile = (oldFile, newFile) ->
+         if oldFile.md5 isnt newFile.md5
+            addedFileJob newFile
+
+      fileObserve = myData.find(
+         md5:
+            $ne: 'd41d8cd98f00b204e9800998ecf8427e'  # md5 sum for zero length file
+         'metadata._Resumable':
+            $exists: false
+         'metadata._Git':
+            $exists: false
+      ).observe(
+        added: addedFile
+        changed: changedFile
+      )
