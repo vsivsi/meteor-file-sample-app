@@ -172,7 +172,10 @@ if Meteor.isServer
          # This prevents a race condition on the client between Meteor.userId() and subscriptions to this publish
          # See: https://stackoverflow.com/questions/24445404/how-to-prevent-a-client-reactive-race-between-meteor-userid-and-a-subscription/24460877#24460877
          if this.userId is clientUserId
-            return myData.find({ 'metadata._Resumable': { $exists: false }, 'metadata._auth.owner': this.userId })
+            return myData.find
+              'metadata._Resumable':
+                $exists: false
+              $or: [{ 'metadata._auth.owner': this.userId } , { 'metadata._auth.owners': $in: [ this.userId ] } ]
          else
             return []
 
@@ -218,6 +221,8 @@ if Meteor.isServer
                 filename: data.hash
                 aliases: [ file.filename ]
                 metadata:
+                  _auth:
+                    owners: [ file.metadata._auth.owner ]
                   _Git:
                     type: 'blob'
                     size: file.length
@@ -240,7 +245,8 @@ if Meteor.isServer
                     $exists: true
                 ,
                   $addToSet:
-                    aliases: [ file.filename ]
+                    aliases: file.filename
+                    "metadata._auth.owners": file.metadata._auth.owner
               myData.update
                   _id: file._id
                   md5: file.md5
