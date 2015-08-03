@@ -98,7 +98,8 @@ if Meteor.isClient
 
       'click #treeButton': (e, t) ->
          console.log "Make Tree"
-         Meteor.call 'makeTree'
+         Meteor.call 'makeTree', (err, res) ->
+          console.log "Tree made! #{res.hash} #{res.size}"
 
       'click #commitButton': (e, t) ->
         console.log "Make Commit"
@@ -276,10 +277,9 @@ if Meteor.isServer
                 $exists: false
           ).map (f) -> { name: f.filename, mode: myData.gbs.gitModes.file, hash: f.metadata.sha1 }
           console.dir tree
-          hcb = (err, data) ->
-            console.log "Tree #{data.hash} written #{data.size} bytes"
-          myData.gbs.treeWriter tree, Meteor.bindEnvironment (err, data) ->
-            console.log "tree should be: #{data.hash}, #{data.size}"
+          data = Async.wrap(myData.gbs.treeWriter) tree, { noOutput: true }
+          console.log "tree should be: #{data.hash}, #{data.size}"
+          unless myData.findOne { filename: data.hash }
             os = myData.upsertStream
               filename: data.hash
               metadata:
@@ -289,7 +289,9 @@ if Meteor.isServer
               , (err, f) ->
                   console.dir f
                   console.log "#{data.hash} written! as #{f._id}", err
-            myData.gbs.treeWriter(tree, hcb).pipe(os)
+            myData.gbs.treeWriter(tree).pipe(os)
+          console.log "Returning #{data.hash}"
+          return data
 
         makeCommit: () ->
           console.dir Meteor.user()
