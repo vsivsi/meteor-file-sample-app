@@ -96,6 +96,18 @@ if Meteor.isClient
          # Just the remove method does it all
          myData.remove {_id: this._id}
 
+      'click #treeButton': (e, t) ->
+         console.log "Make Tree"
+         Meteor.call 'makeTree'
+
+      'click #commitButton': (e, t) ->
+        console.log "Make Commit"
+        Meteor.call 'makeCommit'
+
+      'click #tagButton': (e, t) ->
+        console.log "Make Tag"
+        Meteor.call 'makeTag'
+
    Template.collTest.helpers
 
       dataEntries: () ->
@@ -193,32 +205,48 @@ if Meteor.isServer
 
       addedFile = (file) ->
         # Check if this blob exists
-        console.dir file
-        str = myData.findOneStream({ md5: file.md5 }).pipe(myData.gbs.blobWriter({ type: 'blob', size: file.length, hashFormat: 'hex' }))
-        str.on 'data', Meteor.bindEnvironment (data) ->
-          writeDone = (err, id) ->
-            console.log "#{data.hash} written! as #{id}", err
-            br = myData.gbs.blobReader()
-            os = myData.upsertStream
-              filename: "_#{file.filename}"
-              , (err, id) -> console.log "Restored #{id}"
-            myData.findOneStream({ filename: data.hash })?.pipe(br)?.pipe(os)
-          console.dir data
-          unless myData.findOne { filename: data.hash }
-            bw = myData.gbs.blobWriter
-              type: 'blob'
-              size: file.length
-              hashFormat: 'hex'
-              hashCallback: (obj) -> console.dir obj
-            os = myData.upsertStream
-              filename: data.hash
-              metadata:
-                _Git:
+        myData.findOneStream({ md5: file.md5 }).pipe(
+          myData.gbs.blobWriter { type: 'blob', size: file.length, noOutput: true }, Meteor.bindEnvironment (err, data) ->
+            console.dir data
+            unless myData.findOne { filename: data.hash }
+              bw = myData.gbs.blobWriter
                   type: 'blob'
                   size: file.length
+                , (err, obj) -> console.dir obj
+              os = myData.upsertStream
+                filename: data.hash
+                aliases: [ file.filename ]
+                metadata:
+                  _Git:
+                    type: 'blob'
+                    size: file.length
+                    md5: file.md5
+                , (err, f) ->
+                    console.dir f
+                    console.log "#{data.hash} written! as #{f._id}", err
+                    myData.update
+                        _id: file._id
+                        md5: file.md5
+                      ,
+                        $set:
+                          "metadata.sha1": data.hash
+                    console.dir myData.findOne file._id
+              myData.findOneStream({ md5: file.md5 })?.pipe(bw)?.pipe(os)
+            else
+              myData.update
+                  filename: data.hash
+                  "metadata._Git":
+                    $exists: true
+                ,
+                  $addToSet:
+                    aliases: [ file.filename ]
+              myData.update
+                  _id: file._id
                   md5: file.md5
-              , writeDone
-            myData.findOneStream({ md5: file.md5 })?.pipe(bw)?.pipe(os)
+                ,
+                  $set:
+                    "metadata.sha1": data.hash
+        )
 
       changedFile = (oldFile, newFile) ->
          if oldFile.md5 isnt newFile.md5
@@ -235,3 +263,37 @@ if Meteor.isServer
         added: addedFile
         changed: changedFile
       )
+
+      Meteor.methods
+        makeTree: () ->
+          console.log "Making a tree!"
+          tree = myData.find(
+             md5:
+                $ne: 'd41d8cd98f00b204e9800998ecf8427e'  # md5 sum for zero length file
+             'metadata._Resumable':
+                $exists: false
+             'metadata._Git':
+                $exists: false
+          ).map (f) -> { name: f.filename, mode: myData.gbs.gitModes.file, hash: f.metadata.sha1 }
+          console.dir tree
+          hcb = (err, data) ->
+            console.log "Tree #{data.hash} written #{data.size} bytes"
+          myData.gbs.treeWriter tree, Meteor.bindEnvironment (err, data) ->
+            console.log "tree should be: #{data.hash}, #{data.size}"
+            os = myData.upsertStream
+              filename: data.hash
+              metadata:
+                _Git:
+                  type: 'tree'
+                  size: data.size
+              , (err, f) ->
+                  console.dir f
+                  console.log "#{data.hash} written! as #{f._id}", err
+            myData.gbs.treeWriter(tree, hcb).pipe(os)
+
+        makeCommit: () ->
+          console.dir Meteor.user()
+          console.log "Making a commit!"
+        makeTag: () ->
+          console.dir Meteor.user()
+          console.log "Making a tag!"

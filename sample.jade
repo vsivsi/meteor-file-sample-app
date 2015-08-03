@@ -20,6 +20,11 @@ template(name="collTest")
         span.text-info #{loginToken}
     div.loginTemp
       +loginButtons align="right"
+  div.ui.segment
+    h4.ui.header Buttons!
+    button.ui.button(id="treeButton") Make Tree
+    button.ui.button(id="commitButton") Make Commit
+    button.ui.button(id="tagButton") Make Tag
   div.ui.segment.fileDrop
     table.ui.celled.striped.table
       thead
