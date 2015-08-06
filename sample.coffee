@@ -283,7 +283,7 @@ if Meteor.isServer
                 $exists: false
           ).map (f) -> { name: f.filename, mode: myData.gbs.gitModes.file, hash: f.metadata.sha1 }
           console.dir tree
-          data = Async.wrap(myData.gbs.treeWriter) tree, { noOutput: true }
+          data = Async.wrap(myData.gbs.treeWriter) tree, { arrayTree: true, noOutput: true }
           console.log "tree should be: #{data.hash}, #{data.size}"
           unless myData.findOne { filename: data.hash }
             os = myData.upsertStream
@@ -292,7 +292,7 @@ if Meteor.isServer
                   _Git:
                     type: 'tree'
                     size: data.size
-                    tree: tree
+                    tree: data.tree
               , (err, f) ->
                   console.dir f
                   console.log "#{data.hash} written! as #{f._id}", err
@@ -321,7 +321,7 @@ if Meteor.isServer
                   _Git:
                     type: 'commit'
                     size: data.size
-                    commit: commit
+                    commit: data.commit
               , (err, f) ->
                   console.dir f
                   console.log "#{data.hash} written! as #{f._id}", err
