@@ -287,11 +287,12 @@ if Meteor.isServer
           console.log "tree should be: #{data.hash}, #{data.size}"
           unless myData.findOne { filename: data.hash }
             os = myData.upsertStream
-              filename: data.hash
-              metadata:
-                _Git:
-                  type: 'tree'
-                  size: data.size
+                filename: data.hash
+                metadata:
+                  _Git:
+                    type: 'tree'
+                    size: data.size
+                    tree: tree
               , (err, f) ->
                   console.dir f
                   console.log "#{data.hash} written! as #{f._id}", err
@@ -302,6 +303,32 @@ if Meteor.isServer
         makeCommit: () ->
           console.dir Meteor.user()
           console.log "Making a commit!"
+          console.log "Calling make tree"
+          tree = Meteor.call 'makeTree'
+          console.dir tree
+          commit =
+            author:
+              name: "Vaughn Iverson"
+              email: "vsi@uw.edu"
+            tree: tree.hash
+            message: "Test commit\n"
+          data = Async.wrap(myData.gbs.commitWriter) commit, { noOutput: true }
+          console.log "commit should be: #{data.hash}, #{data.size}"
+          unless myData.findOne { filename: data.hash }
+            os = myData.upsertStream
+                filename: data.hash
+                metadata:
+                  _Git:
+                    type: 'commit'
+                    size: data.size
+                    commit: commit
+              , (err, f) ->
+                  console.dir f
+                  console.log "#{data.hash} written! as #{f._id}", err
+            myData.gbs.commitWriter(commit).pipe(os)
+          console.log "Returning #{data.hash}"
+          return data
+
         makeTag: () ->
           console.dir Meteor.user()
           console.log "Making a tag!"
