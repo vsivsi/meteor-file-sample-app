@@ -207,18 +207,21 @@ if Meteor.isServer
                return false
             true
 
+      objPath = (hash) ->
+         return "objects/#{hash.slice(0,2)}/#{hash.slice(2)}"
+
       addedFile = (file) ->
         # Check if this blob exists
         myData.findOneStream({ md5: file.md5 }).pipe(
           myData.gbs.blobWriter { type: 'blob', size: file.length, noOutput: true }, Meteor.bindEnvironment (err, data) ->
             console.dir data
-            unless myData.findOne { filename: data.hash }
+            unless myData.findOne { filename: objPath data.hash }
               bw = myData.gbs.blobWriter
                   type: 'blob'
                   size: file.length
                 , (err, obj) -> console.dir obj
               os = myData.upsertStream
-                filename: data.hash
+                filename: objPath data.hash
                 aliases: [ file.filename ]
                 metadata:
                   _auth:
@@ -228,7 +231,7 @@ if Meteor.isServer
                     size: file.length
                     md5: file.md5
                 , (err, f) ->
-                    console.dir f
+                    console.dir f, { depth: null }
                     console.log "#{data.hash} written! as #{f._id}", err
                     myData.update
                         _id: file._id
@@ -272,6 +275,24 @@ if Meteor.isServer
       )
 
       Meteor.methods
+        writeHEAD: (ref) ->
+          query =
+            filename: 'HEAD'
+            "metadata._Git.type": 'HEAD'
+          head = myData.findOne query
+          query =
+            filename: 'HEAD'
+            metadata:
+              _Git:
+                type: 'HEAD'
+                ref: ref
+          if head
+            query._id = head._id
+
+          console.log "Writing Query!", query
+          os = myData.upsertStream query, (err, f) -> console.dir f
+          os.end "#{ref}\n"
+
         makeTree: () ->
           console.log "Making a tree!"
           tree = myData.find(
@@ -285,16 +306,16 @@ if Meteor.isServer
           console.dir tree
           data = Async.wrap(myData.gbs.treeWriter) tree, { arrayTree: true, noOutput: true }
           console.log "tree should be: #{data.hash}, #{data.size}"
-          unless myData.findOne { filename: data.hash }
+          unless myData.findOne { filename: objPath data.hash }
             os = myData.upsertStream
-                filename: data.hash
+                filename: objPath data.hash
                 metadata:
                   _Git:
                     type: 'tree'
                     size: data.size
                     tree: data.tree
               , (err, f) ->
-                  console.dir f
+                  console.dir f, { depth: null }
                   console.log "#{data.hash} written! as #{f._id}", err
             myData.gbs.treeWriter(tree).pipe(os)
           console.log "Returning #{data.hash}"
@@ -306,25 +327,34 @@ if Meteor.isServer
           console.log "Calling make tree"
           tree = Meteor.call 'makeTree'
           console.dir tree
+          head = myData.findOne
+            filename: 'HEAD'
+            "metadata._Git.type": 'HEAD'
           commit =
             author:
               name: "Vaughn Iverson"
               email: "vsi@uw.edu"
             tree: tree.hash
             message: "Test commit\n"
+          if head
+            console.log "Found HEAD!", head
+            commit.parent = head.metadata._Git.ref
+          else
+            console.log "No HEAD!"
           data = Async.wrap(myData.gbs.commitWriter) commit, { noOutput: true }
           console.log "commit should be: #{data.hash}, #{data.size}"
-          unless myData.findOne { filename: data.hash }
+          unless myData.findOne { filename: objPath data.hash }
             os = myData.upsertStream
-                filename: data.hash
+                filename: objPath data.hash
                 metadata:
                   _Git:
                     type: 'commit'
                     size: data.size
                     commit: data.commit
               , (err, f) ->
-                  console.dir f
+                  console.dir f.metadata._Git.commit, { depth: null }
                   console.log "#{data.hash} written! as #{f._id}", err
+                  Meteor.call 'writeHEAD', data.hash
             myData.gbs.commitWriter(commit).pipe(os)
           console.log "Returning #{data.hash}"
           return data
