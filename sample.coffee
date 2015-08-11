@@ -96,11 +96,6 @@ if Meteor.isClient
          # Just the remove method does it all
          myData.remove {_id: this._id}
 
-      'click #treeButton': (e, t) ->
-         console.log "Make Tree"
-         Meteor.call 'makeTree', (err, res) ->
-          console.log "Tree made! #{res.hash} #{res.size}"
-
       'click #commitButton': (e, t) ->
         console.log "Make Commit"
         Meteor.call 'makeCommit'
@@ -284,93 +279,90 @@ if Meteor.isServer
         else
           return head.metadata._Git.ref[5..]
 
-      Meteor.methods
-        readHEAD: () ->
-          if headRef = getHeadRef()
-            query =
-              filename: headRef
-              "metadata._Git.type": 'ref'
-            ref = myData.findOne query
-            if ref
-              return ref.metadata._Git.ref
-            else
-              console.warn "Missing ref: #{head.metadata._Git.ref[5..]}"
-          return null
-
-        writeHEAD: (ref) ->
-          unless headRef = getHeadRef()
-            # Write HEAD if missing
-            headRef = 'refs/heads/master'
-            query =
-              filename: 'HEAD'
-              metadata:
-                _Git:
-                  type: 'HEAD'
-                  ref: "ref: #{headRef}"
-            os = myData.upsertStream query, (err, f) -> console.dir f
-            os.end "ref: #{headRef}\n"
+      readHEAD = () ->
+        if headRef = getHeadRef()
           query =
             filename: headRef
             "metadata._Git.type": 'ref'
-          branch = myData.findOne query
+          ref = myData.findOne query
+          if ref
+            return ref.metadata._Git.ref
+          else
+            console.warn "Missing ref: #{head.metadata._Git.ref[5..]}"
+        return null
+
+      writeHEAD = (ref) ->
+        unless headRef = getHeadRef()
+          # Write HEAD if missing
+          headRef = 'refs/heads/master'
           query =
-            filename: headRef
+            filename: 'HEAD'
             metadata:
               _Git:
-                type: 'ref'
-                ref: ref
-          if branch
-            query._id = branch._id
-          oss = myData.upsertStream query, (err, f) -> console.dir f
-          oss.end "#{ref}\n"
-          console.log "Writing Query!", query
+                type: 'HEAD'
+                ref: "ref: #{headRef}"
+          os = myData.upsertStream query, (err, f) -> console.dir f
+          os.end "ref: #{headRef}\n"
+        query =
+          filename: headRef
+          "metadata._Git.type": 'ref'
+        branch = myData.findOne query
+        query =
+          filename: headRef
+          metadata:
+            _Git:
+              type: 'ref'
+              ref: ref
+        if branch
+          query._id = branch._id
+        oss = myData.upsertStream query, (err, f) -> console.dir f
+        oss.end "#{ref}\n"
+        console.log "Writing Query!", query
 
-        makeTree: () ->
-          console.log "Making a tree!"
-          tree = myData.find(
-             md5:
-                $ne: 'd41d8cd98f00b204e9800998ecf8427e'  # md5 sum for zero length file
-             'metadata._Resumable':
-                $exists: false
-             'metadata._Git':
-                $exists: false
-          ).map (f) -> { name: f.filename, mode: myData.gbs.gitModes.file, hash: f.metadata.sha1 }
-          console.dir tree
-          data = Async.wrap(myData.gbs.treeWriter) tree, { arrayTree: true, noOutput: true }
-          console.log "tree should be: #{data.hash}, #{data.size}"
-          unless myData.findOne { filename: objPath data.hash }
-            os = myData.upsertStream
-                filename: objPath data.hash
-                metadata:
-                  _Git:
-                    type: 'tree'
-                    size: data.size
-                    tree: data.tree
-              , (err, f) ->
-                  console.dir f, { depth: null }
-                  console.log "#{data.hash} written! as #{f._id}", err
-            myData.gbs.treeWriter(tree).pipe(os)
-          console.log "Returning #{data.hash}"
-          return data
+      makeTree = () ->
+        console.log "Making a tree!"
+        tree = myData.find(
+           md5:
+              $ne: 'd41d8cd98f00b204e9800998ecf8427e'  # md5 sum for zero length file
+           'metadata._Resumable':
+              $exists: false
+           'metadata._Git':
+              $exists: false
+        ).map (f) -> { name: f.filename, mode: myData.gbs.gitModes.file, hash: f.metadata.sha1 }
+        console.dir tree
+        data = Async.wrap(myData.gbs.treeWriter) tree, { arrayTree: true, noOutput: true }
+        console.log "tree should be: #{data.hash}, #{data.size}"
+        unless myData.findOne { filename: objPath data.hash }
+          os = myData.upsertStream
+              filename: objPath data.hash
+              metadata:
+                _Git:
+                  type: 'tree'
+                  size: data.size
+                  tree: data.tree
+            , (err, f) ->
+                console.dir f, { depth: null }
+                console.log "#{data.hash} written! as #{f._id}", err
+          myData.gbs.treeWriter(tree).pipe(os)
+        console.log "Returning #{data.hash}"
+        return data
 
+      Meteor.methods
         makeCommit: () ->
           console.dir Meteor.user()
           console.log "Making a commit!"
           console.log "Calling make tree"
-          tree = Meteor.call 'makeTree'
+          tree = makeTree()
           console.dir tree
-          head = myData.findOne
-            filename: 'HEAD'
-            "metadata._Git.type": 'HEAD'
           commit =
             author:
               name: "Vaughn Iverson"
               email: "vsi@uw.edu"
             tree: tree.hash
             message: "Test commit\n"
-          if head
-            console.log "Found HEAD!", head
-            commit.parent = head.metadata._Git.ref
+          if parent = readHEAD()
+            console.log "Found parent!", parent
+            commit.parent = parent
           else
             console.log "No HEAD!"
           data = Async.wrap(myData.gbs.commitWriter) commit, { noOutput: true }
@@ -386,7 +378,7 @@ if Meteor.isServer
               , (err, f) ->
                   console.dir f.metadata._Git.commit, { depth: null }
                   console.log "#{data.hash} written! as #{f._id}", err
-                  Meteor.call 'writeHEAD', data.hash
+                  writeHEAD data.hash
             myData.gbs.commitWriter(commit).pipe(os)
           console.log "Returning #{data.hash}"
           return data
@@ -394,7 +386,7 @@ if Meteor.isServer
         makeTag: () ->
           # Tag the current HEAD commit
           console.log "Making a tag!"
-          commit = Meteor.call('readHEAD')
+          commit = readHEAD()
           unless commit
             commit = Meteor.call('makeCommit').hash
           console.log "Got commit!", commit
