@@ -315,7 +315,9 @@ if Meteor.isServer
               ref: ref
         if branch
           query._id = branch._id
-        oss = myData.upsertStream query, (err, f) -> console.dir f
+        oss = myData.upsertStream query, (err, f) ->
+          console.dir f
+          updateRefs()
         oss.end "#{ref}\n"
         console.log "Writing Query!", query
 
@@ -346,6 +348,29 @@ if Meteor.isServer
           myData.gbs.treeWriter(tree).pipe(os)
         console.log "Returning #{data.hash}"
         return data
+
+      updateRefs = () ->
+        query =
+          filename:
+            $regex: /^refs\//
+        refs = ""
+        myData.find(query).forEach (d) ->
+          console.log "%%%%%%%%%%%%%%%%%%%%%%%", d
+          refs += "#{d.metadata._Git.ref}\t#{d.filename}\n"
+        query =
+          filename: "info/refs"
+          "metadata._Git.type": 'refs'
+        refFile = myData.findOne query
+        query =
+          filename: "info/refs"
+          metadata:
+            _Git:
+              type: 'refs'
+        if refFile
+          query._id = refFile._id
+        oss = myData.upsertStream query, (err, f) -> console.dir f
+        console.log "Here are the refs!", refs
+        oss.end refs
 
       Meteor.methods
         makeCommit: () ->
@@ -425,7 +450,9 @@ if Meteor.isServer
                 ref: commit
           if tagFile
             query._id = tagFile._id
-          oss = myData.upsertStream query, (err, f) -> console.dir f
+          oss = myData.upsertStream query, (err, f) ->
+            console.dir f
+            updateRefs()
           oss.end "#{commit}\n"
           console.log "Writing Query!", query
           console.log "Returning #{data.hash}"
