@@ -274,24 +274,56 @@ if Meteor.isServer
         changed: changedFile
       )
 
+      getHeadRef = () ->
+        query =
+          filename: 'HEAD'
+          "metadata._Git.type": 'HEAD'
+        head = myData.findOne query
+        unless head?.metadata?._Git?.ref[0..4] is 'ref: '
+          return null
+        else
+          return head.metadata._Git.ref[5..]
+
       Meteor.methods
+        readHEAD: () ->
+          if headRef = getHeadRef()
+            query =
+              filename: headRef
+              "metadata._Git.type": 'ref'
+            ref = myData.findOne query
+            if ref
+              return ref.metadata._Git.ref
+            else
+              console.warn "Missing ref: #{head.metadata._Git.ref[5..]}"
+          return null
+
         writeHEAD: (ref) ->
+          unless headRef = getHeadRef()
+            # Write HEAD if missing
+            headRef = 'refs/heads/master'
+            query =
+              filename: 'HEAD'
+              metadata:
+                _Git:
+                  type: 'HEAD'
+                  ref: "ref: #{headRef}"
+            os = myData.upsertStream query, (err, f) -> console.dir f
+            os.end "ref: #{headRef}\n"
           query =
-            filename: 'HEAD'
-            "metadata._Git.type": 'HEAD'
-          head = myData.findOne query
+            filename: headRef
+            "metadata._Git.type": 'ref'
+          branch = myData.findOne query
           query =
-            filename: 'HEAD'
+            filename: headRef
             metadata:
               _Git:
-                type: 'HEAD'
+                type: 'ref'
                 ref: ref
-          if head
-            query._id = head._id
-
+          if branch
+            query._id = branch._id
+          oss = myData.upsertStream query, (err, f) -> console.dir f
+          oss.end "#{ref}\n"
           console.log "Writing Query!", query
-          os = myData.upsertStream query, (err, f) -> console.dir f
-          os.end "#{ref}\n"
 
         makeTree: () ->
           console.log "Making a tree!"
@@ -360,5 +392,49 @@ if Meteor.isServer
           return data
 
         makeTag: () ->
-          console.dir Meteor.user()
+          # Tag the current HEAD commit
           console.log "Making a tag!"
+          commit = Meteor.call('readHEAD')
+          unless commit
+            commit = Meteor.call('makeCommit').hash
+          console.log "Got commit!", commit
+          tagName = "TAG_#{Math.floor(Math.random()*10000000).toString(16)}"
+          tag =
+            object: commit
+            type: 'commit'
+            tag: tagName
+            tagger:
+              name: "Vaughn Iverson"
+              email: "vsi@uw.edu"
+            message: "Test tag\n"
+          data = Async.wrap(myData.gbs.tagWriter) tag, { noOutput: true }
+          console.log "tag should be: #{data.hash}, #{data.size}"
+          unless myData.findOne { filename: objPath data.hash }
+            os = myData.upsertStream
+                filename: objPath data.hash
+                metadata:
+                  _Git:
+                    type: 'tag'
+                    size: data.size
+                    tag: data.tag
+              , (err, f) ->
+                  console.dir f.metadata._Git.tag, { depth: null }
+                  console.log "#{data.hash} written! as #{f._id}", err
+            myData.gbs.tagWriter(tag).pipe(os)
+          query =
+            filename: "refs/tags/#{tagName}"
+            "metadata._Git.type": 'ref'
+          tagFile = myData.findOne query
+          query =
+            filename: "refs/tags/#{tagName}"
+            metadata:
+              _Git:
+                type: 'ref'
+                ref: commit
+          if tagFile
+            query._id = tagFile._id
+          oss = myData.upsertStream query, (err, f) -> console.dir f
+          oss.end "#{commit}\n"
+          console.log "Writing Query!", query
+          console.log "Returning #{data.hash}"
+          return data
