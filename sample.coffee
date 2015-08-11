@@ -10,8 +10,12 @@
 myData = FileCollection({
    resumable: true,     # Enable the resumable.js compatible chunked file upload interface
    resumableIndexName: 'test',  # Don't use the default MongoDB index name, which is 94 chars long
-   http: [ { method: 'get', path: '/md5/:md5', lookup: (params, query) -> return { md5: params.md5 }}]}
    # Define a GET API that uses the md5 sum id files
+   http: [ { method: 'get', path: '/md5/:md5', lookup: (params, query) -> return { md5: params.md5 }},
+           { method: 'get', path: '/git/*', lookup: (params, query) ->
+             console.log "Request for file: #{params[0]}"
+             return { filename: params[0]}}
+   ]}
 )
 
 ############################################################
@@ -123,7 +127,10 @@ if Meteor.isClient
          "#{this._id}"
 
       link: () ->
-         myData.baseURL + "/md5/" + this.md5
+        if this.metadata._Git?
+          myData.baseURL + "/git/" + this.filename
+        else
+          myData.baseURL + "/md5/" + this.md5
 
       uploadStatus: () ->
          percent = Session.get "#{this._id}"
