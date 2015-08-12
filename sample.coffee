@@ -12,7 +12,7 @@ myData = FileCollection({
    resumableIndexName: 'test',  # Don't use the default MongoDB index name, which is 94 chars long
    # Define a GET API that uses the md5 sum id files
    http: [ { method: 'get', path: '/md5/:md5', lookup: (params, query) -> return { md5: params.md5 }},
-           { method: 'get', path: '/git/*', lookup: (params, query) ->
+           { method: 'get', path: '/uploaded_files*', lookup: (params, query) ->
              console.log "Request for file: #{params[0]}"
              return { filename: params[0]}}
    ]}
@@ -128,7 +128,7 @@ if Meteor.isClient
 
       link: () ->
         if this.metadata._Git?
-          myData.baseURL + "/git/" + this.filename
+          myData.baseURL + "/uploaded_files" + this.filename
         else
           myData.baseURL + "/md5/" + this.md5
 
@@ -217,13 +217,13 @@ if Meteor.isServer
         myData.findOneStream({ md5: file.md5 }).pipe(
           myData.gbs.blobWriter { type: 'blob', size: file.length, noOutput: true }, Meteor.bindEnvironment (err, data) ->
             console.dir data
-            unless myData.findOne { filename: objPath data.hash }
+            unless myData.findOne { filename: ".git/#{objPath data.hash}" }
               bw = myData.gbs.blobWriter
                   type: 'blob'
                   size: file.length
                 , (err, obj) -> console.dir obj
               os = myData.upsertStream
-                filename: objPath data.hash
+                filename: ".git/#{objPath data.hash}"
                 aliases: [ file.filename ]
                 metadata:
                   _auth:
@@ -245,7 +245,7 @@ if Meteor.isServer
               myData.findOneStream({ md5: file.md5 })?.pipe(bw)?.pipe(os)
             else
               myData.update
-                  filename: data.hash
+                  filename: ".git/#{objPath data.hash}"
                   "metadata._Git":
                     $exists: true
                 ,
@@ -278,7 +278,7 @@ if Meteor.isServer
 
       getHeadRef = () ->
         query =
-          filename: 'HEAD'
+          filename: '.git/HEAD'
           "metadata._Git.type": 'HEAD'
         head = myData.findOne query
         unless head?.metadata?._Git?.ref[0..4] is 'ref: '
@@ -289,7 +289,7 @@ if Meteor.isServer
       readHEAD = () ->
         if headRef = getHeadRef()
           query =
-            filename: headRef
+            filename: ".git/#{headRef}"
             "metadata._Git.type": 'ref'
           ref = myData.findOne query
           if ref
@@ -303,7 +303,7 @@ if Meteor.isServer
           # Write HEAD if missing
           headRef = 'refs/heads/master'
           query =
-            filename: 'HEAD'
+            filename: '.git/HEAD'
             metadata:
               _Git:
                 type: 'HEAD'
@@ -311,11 +311,11 @@ if Meteor.isServer
           os = myData.upsertStream query, (err, f) -> console.dir f
           os.end "ref: #{headRef}\n"
         query =
-          filename: headRef
+          filename: ".git/#{headRef}"
           "metadata._Git.type": 'ref'
         branch = myData.findOne query
         query =
-          filename: headRef
+          filename: ".git/#{headRef}"
           metadata:
             _Git:
               type: 'ref'
@@ -341,9 +341,9 @@ if Meteor.isServer
         console.dir tree
         data = Async.wrap(myData.gbs.treeWriter) tree, { arrayTree: true, noOutput: true }
         console.log "tree should be: #{data.hash}, #{data.size}"
-        unless myData.findOne { filename: objPath data.hash }
+        unless myData.findOne { filename: ".git/#{objPath data.hash}" }
           os = myData.upsertStream
-              filename: objPath data.hash
+              filename: ".git/#{objPath data.hash}"
               metadata:
                 _Git:
                   type: 'tree'
@@ -359,17 +359,17 @@ if Meteor.isServer
       updateRefs = () ->
         query =
           filename:
-            $regex: /^refs\//
+            $regex: /^.git\/refs\//
         refs = ""
         myData.find(query).forEach (d) ->
           console.log "%%%%%%%%%%%%%%%%%%%%%%%", d
-          refs += "#{d.metadata._Git.ref}\t#{d.filename}\n"
+          refs += "#{d.metadata._Git.ref}\t#{d.filename[5..]}\n"
         query =
-          filename: "info/refs"
+          filename: ".git/info/refs"
           "metadata._Git.type": 'refs'
         refFile = myData.findOne query
         query =
-          filename: "info/refs"
+          filename: ".git/info/refs"
           metadata:
             _Git:
               type: 'refs'
@@ -399,9 +399,9 @@ if Meteor.isServer
             console.log "No HEAD!"
           data = Async.wrap(myData.gbs.commitWriter) commit, { noOutput: true }
           console.log "commit should be: #{data.hash}, #{data.size}"
-          unless myData.findOne { filename: objPath data.hash }
+          unless myData.findOne { filename: ".git/#{objPath data.hash}" }
             os = myData.upsertStream
-                filename: objPath data.hash
+                filename: ".git/#{objPath data.hash}"
                 metadata:
                   _Git:
                     type: 'commit'
@@ -435,7 +435,7 @@ if Meteor.isServer
           console.log "tag should be: #{data.hash}, #{data.size}"
           unless myData.findOne { filename: objPath data.hash }
             os = myData.upsertStream
-                filename: objPath data.hash
+                filename: ".git/#{objPath data.hash}"
                 metadata:
                   _Git:
                     type: 'tag'
@@ -446,11 +446,11 @@ if Meteor.isServer
                   console.log "#{data.hash} written! as #{f._id}", err
             myData.gbs.tagWriter(tag).pipe(os)
           query =
-            filename: "refs/tags/#{tagName}"
+            filename: ".git/refs/tags/#{tagName}"
             "metadata._Git.type": 'ref'
           tagFile = myData.findOne query
           query =
-            filename: "refs/tags/#{tagName}"
+            filename: ".git/refs/tags/#{tagName}"
             metadata:
               _Git:
                 type: 'ref'
