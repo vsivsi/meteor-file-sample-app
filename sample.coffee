@@ -12,7 +12,7 @@ myData = FileCollection({
    resumableIndexName: 'test',  # Don't use the default MongoDB index name, which is 94 chars long
    # Define a GET API that uses the md5 sum id files
    http: [ { method: 'get', path: '/md5/:md5', lookup: (params, query) -> return { md5: params.md5 }},
-           { method: 'get', path: '/uploaded_files*', lookup: (params, query) ->
+           { method: 'get', path: '/repos/*', lookup: (params, query) ->
              console.log "Request for file: #{params[0]}"
              return { filename: params[0]}}
    ]}
@@ -128,7 +128,7 @@ if Meteor.isClient
 
       link: () ->
         if this.metadata._Git?
-          myData.baseURL + "/uploaded_files" + this.filename
+          myData.baseURL + "/repos/" + this.filename
         else
           myData.baseURL + "/md5/" + this.md5
 
@@ -209,55 +209,25 @@ if Meteor.isServer
                return false
             true
 
+      git = myData.Git "testRepo"
+
       objPath = (hash) ->
          return "objects/#{hash.slice(0,2)}/#{hash.slice(2)}"
 
       addedFile = (file) ->
         # Check if this blob exists
-        myData.findOneStream({ md5: file.md5 }).pipe(
-          myData.gbs.blobWriter { type: 'blob', size: file.length, noOutput: true }, Meteor.bindEnvironment (err, data) ->
-            console.dir data
-            unless myData.findOne { filename: ".git/#{objPath data.hash}" }
-              bw = myData.gbs.blobWriter
-                  type: 'blob'
-                  size: file.length
-                , (err, obj) -> console.dir obj
-              os = myData.upsertStream
-                filename: ".git/#{objPath data.hash}"
-                aliases: [ file.filename ]
-                metadata:
-                  _auth:
-                    owners: [ file.metadata._auth.owner ]
-                  _Git:
-                    type: 'blob'
-                    size: file.length
-                    md5: file.md5
-                , (err, f) ->
-                    console.dir f, { depth: null }
-                    console.log "#{data.hash} written! as #{f._id}", err
-                    myData.update
-                        _id: file._id
-                        md5: file.md5
-                      ,
-                        $set:
-                          "metadata.sha1": data.hash
-                    console.dir myData.findOne file._id
-              myData.findOneStream({ md5: file.md5 })?.pipe(bw)?.pipe(os)
-            else
-              myData.update
-                  filename: ".git/#{objPath data.hash}"
-                  "metadata._Git":
-                    $exists: true
-                ,
-                  $addToSet:
-                    aliases: file.filename
-                    "metadata._auth.owners": file.metadata._auth.owner
+        myData.findOneStream({ _id: file._id })?.pipe(git._checkFile Meteor.bindEnvironment (err, data) =>
+          throw err if err
+          if data
+            myData.findOneStream({ _id: file._id })?.pipe(git._writeFile data, Meteor.bindEnvironment (err, data) =>
+              console.log "Written!", data
               myData.update
                   _id: file._id
                   md5: file.md5
                 ,
                   $set:
                     "metadata.sha1": data.hash
+            )
         )
 
       changedFile = (oldFile, newFile) ->
@@ -276,58 +246,6 @@ if Meteor.isServer
         changed: changedFile
       )
 
-      getHeadRef = () ->
-        query =
-          filename: '.git/HEAD'
-          "metadata._Git.type": 'HEAD'
-        head = myData.findOne query
-        unless head?.metadata?._Git?.ref[0..4] is 'ref: '
-          return null
-        else
-          return head.metadata._Git.ref[5..]
-
-      readHEAD = () ->
-        if headRef = getHeadRef()
-          query =
-            filename: ".git/#{headRef}"
-            "metadata._Git.type": 'ref'
-          ref = myData.findOne query
-          if ref
-            return ref.metadata._Git.ref
-          else
-            console.warn "Missing ref: #{head.metadata._Git.ref[5..]}"
-        return null
-
-      writeHEAD = (ref) ->
-        unless headRef = getHeadRef()
-          # Write HEAD if missing
-          headRef = 'refs/heads/master'
-          query =
-            filename: '.git/HEAD'
-            metadata:
-              _Git:
-                type: 'HEAD'
-                ref: "ref: #{headRef}"
-          os = myData.upsertStream query, (err, f) -> console.dir f
-          os.end "ref: #{headRef}\n"
-        query =
-          filename: ".git/#{headRef}"
-          "metadata._Git.type": 'ref'
-        branch = myData.findOne query
-        query =
-          filename: ".git/#{headRef}"
-          metadata:
-            _Git:
-              type: 'ref'
-              ref: ref
-        if branch
-          query._id = branch._id
-        oss = myData.upsertStream query, (err, f) ->
-          console.dir f
-          updateRefs()
-        oss.end "#{ref}\n"
-        console.log "Writing Query!", query
-
       makeTree = () ->
         console.log "Making a tree!"
         tree = myData.find(
@@ -339,45 +257,7 @@ if Meteor.isServer
               $exists: false
         ).map (f) -> { name: f.filename, mode: myData.gbs.gitModes.file, hash: f.metadata.sha1 }
         console.dir tree
-        data = Async.wrap(myData.gbs.treeWriter) tree, { arrayTree: true, noOutput: true }
-        console.log "tree should be: #{data.hash}, #{data.size}"
-        unless myData.findOne { filename: ".git/#{objPath data.hash}" }
-          os = myData.upsertStream
-              filename: ".git/#{objPath data.hash}"
-              metadata:
-                _Git:
-                  type: 'tree'
-                  size: data.size
-                  tree: data.tree
-            , (err, f) ->
-                console.dir f, { depth: null }
-                console.log "#{data.hash} written! as #{f._id}", err
-          myData.gbs.treeWriter(tree).pipe(os)
-        console.log "Returning #{data.hash}"
-        return data
-
-      updateRefs = () ->
-        query =
-          filename:
-            $regex: /^.git\/refs\//
-        refs = ""
-        myData.find(query).forEach (d) ->
-          console.log "%%%%%%%%%%%%%%%%%%%%%%%", d
-          refs += "#{d.metadata._Git.ref}\t#{d.filename[5..]}\n"
-        query =
-          filename: ".git/info/refs"
-          "metadata._Git.type": 'refs'
-        refFile = myData.findOne query
-        query =
-          filename: ".git/info/refs"
-          metadata:
-            _Git:
-              type: 'refs'
-        if refFile
-          query._id = refFile._id
-        oss = myData.upsertStream query, (err, f) -> console.dir f
-        console.log "Here are the refs!", refs
-        oss.end refs
+        return tree
 
       Meteor.methods
         makeCommit: () ->
@@ -386,41 +266,30 @@ if Meteor.isServer
           console.log "Calling make tree"
           tree = makeTree()
           console.dir tree
+          treeData = git._writeTree(tree)
+          console.dir treeData
           commit =
             author:
               name: "Vaughn Iverson"
               email: "vsi@uw.edu"
-            tree: tree.hash
+            tree: treeData.result.hash
             message: "Test commit\n"
-          if parent = readHEAD()
+          if parent = git._readRef('refs/heads/master')
             console.log "Found parent!", parent
             commit.parent = parent
           else
-            console.log "No HEAD!"
-          data = Async.wrap(myData.gbs.commitWriter) commit, { noOutput: true }
-          console.log "commit should be: #{data.hash}, #{data.size}"
-          unless myData.findOne { filename: ".git/#{objPath data.hash}" }
-            os = myData.upsertStream
-                filename: ".git/#{objPath data.hash}"
-                metadata:
-                  _Git:
-                    type: 'commit'
-                    size: data.size
-                    commit: data.commit
-              , (err, f) ->
-                  console.dir f.metadata._Git.commit, { depth: null }
-                  console.log "#{data.hash} written! as #{f._id}", err
-                  writeHEAD data.hash
-            myData.gbs.commitWriter(commit).pipe(os)
-          console.log "Returning #{data.hash}"
+            console.log "Root commit!"
+          data = git._writeCommit commit
+          console.log "commit is: #{data.result.hash}, #{data.result.size}"
+          git._writeRef 'refs/heads/master', data.result.hash
           return data
 
         makeTag: () ->
-          # Tag the current HEAD commit
+          # Tag the current master branch commit
           console.log "Making a tag!"
-          commit = readHEAD()
+          commit = git._readRef 'refs/heads/master'
           unless commit
-            commit = Meteor.call('makeCommit').hash
+            commit = Meteor.call('makeCommit').result.hash
           console.log "Got commit!", commit
           tagName = "TAG_#{Math.floor(Math.random()*10000000).toString(16)}"
           tag =
@@ -431,36 +300,6 @@ if Meteor.isServer
               name: "Vaughn Iverson"
               email: "vsi@uw.edu"
             message: "Test tag\n"
-          data = Async.wrap(myData.gbs.tagWriter) tag, { noOutput: true }
-          console.log "tag should be: #{data.hash}, #{data.size}"
-          unless myData.findOne { filename: objPath data.hash }
-            os = myData.upsertStream
-                filename: ".git/#{objPath data.hash}"
-                metadata:
-                  _Git:
-                    type: 'tag'
-                    size: data.size
-                    tag: data.tag
-              , (err, f) ->
-                  console.dir f.metadata._Git.tag, { depth: null }
-                  console.log "#{data.hash} written! as #{f._id}", err
-            myData.gbs.tagWriter(tag).pipe(os)
-          query =
-            filename: ".git/refs/tags/#{tagName}"
-            "metadata._Git.type": 'ref'
-          tagFile = myData.findOne query
-          query =
-            filename: ".git/refs/tags/#{tagName}"
-            metadata:
-              _Git:
-                type: 'ref'
-                ref: commit
-          if tagFile
-            query._id = tagFile._id
-          oss = myData.upsertStream query, (err, f) ->
-            console.dir f
-            updateRefs()
-          oss.end "#{commit}\n"
-          console.log "Writing Query!", query
-          console.log "Returning #{data.hash}"
+          data = git._writeTag tag
+          console.log "Returning #{data.result.hash}"
           return data
