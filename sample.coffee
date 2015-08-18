@@ -220,7 +220,6 @@ if Meteor.isServer
           throw err if err
           if data
             myData.findOneStream({ _id: file._id })?.pipe(git._writeFile data, Meteor.bindEnvironment (err, data) =>
-              console.log "Written!", data
               myData.update
                   _id: file._id
                   md5: file.md5
@@ -247,7 +246,6 @@ if Meteor.isServer
       )
 
       makeTree = () ->
-        console.log "Making a tree!"
         tree = myData.find(
            md5:
               $ne: 'd41d8cd98f00b204e9800998ecf8427e'  # md5 sum for zero length file
@@ -256,41 +254,30 @@ if Meteor.isServer
            'metadata._Git':
               $exists: false
         ).map (f) -> { name: f.filename, mode: myData.gbs.gitModes.file, hash: f.metadata.sha1 }
-        console.dir tree
         return tree
 
       Meteor.methods
         makeCommit: () ->
-          console.dir Meteor.user()
-          console.log "Making a commit!"
-          console.log "Calling make tree"
           tree = makeTree()
-          console.dir tree
-          treeData = git._writeTree(tree)
-          console.dir treeData
+          treeData = git._writeTree tree
           commit =
             author:
               name: "Vaughn Iverson"
               email: "vsi@uw.edu"
             tree: treeData.result.hash
             message: "Test commit\n"
-          if parent = git._readRef('refs/heads/master')
-            console.log "Found parent!", parent
+          if parent = git._readRef 'refs/heads/master'
             commit.parent = parent
           else
-            console.log "Root commit!"
           data = git._writeCommit commit
-          console.log "commit is: #{data.result.hash}, #{data.result.size}"
           git._writeRef 'refs/heads/master', data.result.hash
           return data
 
         makeTag: () ->
           # Tag the current master branch commit
-          console.log "Making a tag!"
           commit = git._readRef 'refs/heads/master'
           unless commit
             commit = Meteor.call('makeCommit').result.hash
-          console.log "Got commit!", commit
           tagName = "TAG_#{Math.floor(Math.random()*10000000).toString(16)}"
           tag =
             object: commit
@@ -301,5 +288,4 @@ if Meteor.isServer
               email: "vsi@uw.edu"
             message: "Test tag\n"
           data = git._writeTag tag
-          console.log "Returning #{data.result.hash}"
           return data
