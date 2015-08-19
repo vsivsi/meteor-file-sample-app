@@ -110,6 +110,15 @@ if Meteor.isClient
       console.log "Make Tag"
       Meteor.call 'makeTag'
 
+    'click #addDoc': (e, t) ->
+      console.log "Adding a doc"
+      Meteor.call "addRecord"
+
+    'click #removeDoc': (e, t) ->
+      console.log "Removing a doc"
+      Meteor.call "removeRecord"
+
+
   Template.collTest.helpers
     dataEntries: () ->
       # Reactively populate the table
@@ -167,133 +176,153 @@ if Meteor.isClient
 
 if Meteor.isServer
 
+  testDb = new Mongo.Collection "testDB"
+
+  git = myData.Git "testRepo"
+
   Meteor.startup () ->
 
-    # Only publish files owned by this userId, and ignore temp file chunks used by resumable
-    Meteor.publish 'allData', (clientUserId) ->
+    console.log "Checking!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    unless testDb.find({}).count()
+      for x in [1..20]
+        console.log "Calling addRecord!"
+        Meteor.call 'addRecord'
+    else
+      console.log "Skipping addRecord!"
 
-      # This prevents a race condition on the client between Meteor.userId() and subscriptions to this publish
-      # See: https://stackoverflow.com/questions/24445404/how-to-prevent-a-client-reactive-race-between-meteor-userid-and-a-subscription/24460877#24460877
-      if this.userId is clientUserId
-        return myData.find
-          'metadata._Resumable':
-            $exists: false
-          $or: [
-              'metadata._auth.owner': this.userId
+  # Only publish files owned by this userId, and ignore temp file chunks used by resumable
+  Meteor.publish 'allData', (clientUserId) ->
+
+    # This prevents a race condition on the client between Meteor.userId() and subscriptions to this publish
+    # See: https://stackoverflow.com/questions/24445404/how-to-prevent-a-client-reactive-race-between-meteor-userid-and-a-subscription/24460877#24460877
+    if this.userId is clientUserId
+      return myData.find
+        'metadata._Resumable':
+          $exists: false
+        $or: [
+            'metadata._auth.owner': this.userId
+          ,
+            'metadata._auth.owners':
+              $in:
+                [ this.userId ]
+          ]
+    else
+      return []
+
+  # Don't allow users to modify the user docs
+  Meteor.users.deny
+    update: () -> true
+
+  # Allow rules for security. Without these, no writes would be allowed by default
+  myData.allow
+    insert: (userId, file) ->
+      # Assign the proper owner when a file is created
+      file.metadata = file.metadata ? {}
+      file.metadata._auth =
+        owner: userId
+      true
+    remove: (userId, file) ->
+      # Only owners can delete
+      if file.metadata?._auth?.owner and userId isnt file.metadata._auth.owner
+        return false
+      true
+    read: (userId, file) ->
+      # Only owners can GET file data
+      if file.metadata?._auth?.owner and userId isnt file.metadata._auth.owner
+        return false
+      true
+    write: (userId, file, fields) -> # This is for the HTTP REST interfaces PUT/POST
+      # All client file metadata updates are denied, implement Methods for that...
+      # Only owners can upload a file
+      if file.metadata?._auth?.owner and userId isnt file.metadata._auth.owner
+        return false
+      true
+
+  objPath = (hash) ->
+    return "objects/#{hash.slice(0,2)}/#{hash.slice(2)}"
+
+  addedFile = (file) ->
+    # Check if this blob exists
+    myData.findOneStream({ _id: file._id })?.pipe(git._checkFile Meteor.bindEnvironment (err, data) =>
+      throw err if err
+      if data
+        myData.findOneStream({ _id: file._id })?.pipe(git._writeFile data, Meteor.bindEnvironment (err, data) =>
+          myData.update
+              _id: file._id
+              md5: file.md5
             ,
-              'metadata._auth.owners':
-                $in:
-                  [ this.userId ]
-            ]
-      else
-        return []
+              $set:
+                "metadata.sha1": data.hash
+        )
+    )
 
-    # Don't allow users to modify the user docs
-    Meteor.users.deny
-      update: () -> true
+  changedFile = (oldFile, newFile) ->
+     if oldFile.md5 isnt newFile.md5
+        addedFileJob newFile
 
-    # Allow rules for security. Without these, no writes would be allowed by default
-    myData.allow
-      insert: (userId, file) ->
-        # Assign the proper owner when a file is created
-        file.metadata = file.metadata ? {}
-        file.metadata._auth =
-          owner: userId
-        true
-      remove: (userId, file) ->
-        # Only owners can delete
-        if file.metadata?._auth?.owner and userId isnt file.metadata._auth.owner
-          return false
-        true
-      read: (userId, file) ->
-        # Only owners can GET file data
-        if file.metadata?._auth?.owner and userId isnt file.metadata._auth.owner
-          return false
-        true
-      write: (userId, file, fields) -> # This is for the HTTP REST interfaces PUT/POST
-        # All client file metadata updates are denied, implement Methods for that...
-        # Only owners can upload a file
-        if file.metadata?._auth?.owner and userId isnt file.metadata._auth.owner
-          return false
-        true
+  fileObserve = myData.find(
+    md5:
+      $ne: 'd41d8cd98f00b204e9800998ecf8427e'  # md5 sum for zero length file
+    'metadata._Resumable':
+      $exists: false
+    'metadata._Git':
+      $exists: false
+  ).observe(
+    added: addedFile
+    changed: changedFile
+  )
 
-    git = myData.Git "testRepo"
-
-    objPath = (hash) ->
-      return "objects/#{hash.slice(0,2)}/#{hash.slice(2)}"
-
-    addedFile = (file) ->
-      # Check if this blob exists
-      myData.findOneStream({ _id: file._id })?.pipe(git._checkFile Meteor.bindEnvironment (err, data) =>
-        throw err if err
-        if data
-          myData.findOneStream({ _id: file._id })?.pipe(git._writeFile data, Meteor.bindEnvironment (err, data) =>
-            myData.update
-                _id: file._id
-                md5: file.md5
-              ,
-                $set:
-                  "metadata.sha1": data.hash
-          )
-      )
-
-    changedFile = (oldFile, newFile) ->
-       if oldFile.md5 isnt newFile.md5
-          addedFileJob newFile
-
-    fileObserve = myData.find(
+  makeTree = () ->
+    tree = myData.find(
       md5:
         $ne: 'd41d8cd98f00b204e9800998ecf8427e'  # md5 sum for zero length file
       'metadata._Resumable':
         $exists: false
       'metadata._Git':
         $exists: false
-    ).observe(
-      added: addedFile
-      changed: changedFile
-    )
+    ).map (f) -> { name: f.filename, mode: myData.gbs.gitModes.file, hash: f.metadata.sha1 }
+    return tree
 
-    makeTree = () ->
-      tree = myData.find(
-        md5:
-          $ne: 'd41d8cd98f00b204e9800998ecf8427e'  # md5 sum for zero length file
-        'metadata._Resumable':
-          $exists: false
-        'metadata._Git':
-          $exists: false
-      ).map (f) -> { name: f.filename, mode: myData.gbs.gitModes.file, hash: f.metadata.sha1 }
-      return tree
+  Meteor.methods
+    addRecord: () ->
+      testDb.insert
+        a: Math.floor 100*Math.random()
+        b: Math.floor 100*Math.random()
+      console.log "Added! Count is now: ", testDb.find({}).count()
 
-    Meteor.methods
-      makeCommit: () ->
-        tree = makeTree()
-        treeData = git._writeTree tree
-        commit =
-          author:
-            name: "Vaughn Iverson"
-            email: "vsi@uw.edu"
-          tree: treeData.result.hash
-          message: "Test commit\n"
-        if parent = git._readRef 'refs/heads/master'
-          commit.parent = parent
-        else
-        data = git._writeCommit commit
-        git._writeRef 'refs/heads/master', data.result.hash
-        return data
+    removeRecord: () ->
+      testDb.remove testDb.findOne({})
+      console.log "Removed! Count is now: ", testDb.find({}).count()
 
-      makeTag: () ->
-        # Tag the current master branch commit
-        commit = git._readRef 'refs/heads/master'
-        unless commit
-          commit = Meteor.call('makeCommit').result.hash
-        tagName = "TAG_#{Math.floor(Math.random()*10000000).toString(16)}"
-        tag =
-          object: commit
-          type: 'commit'
-          tag: tagName
-          tagger:
-            name: "Vaughn Iverson"
-            email: "vsi@uw.edu"
-          message: "Test tag\n"
-        data = git._writeTag tag
-        return data
+    makeCommit: () ->
+      tree = makeTree()
+      treeData = git._writeTree tree
+      commit =
+        author:
+          name: "Vaughn Iverson"
+          email: "vsi@uw.edu"
+        tree: treeData.result.hash
+        message: "Test commit\n"
+      if parent = git._readRef 'refs/heads/master'
+        commit.parent = parent
+      else
+      data = git._writeCommit commit
+      git._writeRef 'refs/heads/master', data.result.hash
+      return data
+
+    makeTag: () ->
+      # Tag the current master branch commit
+      commit = git._readRef 'refs/heads/master'
+      unless commit
+        commit = Meteor.call('makeCommit').result.hash
+      tagName = "TAG_#{Math.floor(Math.random()*10000000).toString(16)}"
+      tag =
+        object: commit
+        type: 'commit'
+        tag: tagName
+        tagger:
+          name: "Vaughn Iverson"
+          email: "vsi@uw.edu"
+        message: "Test tag\n"
+      data = git._writeTag tag
+      return data
