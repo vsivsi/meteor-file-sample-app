@@ -114,10 +114,17 @@ if Meteor.isClient
       console.log "Adding a doc"
       Meteor.call "addRecord"
 
+    'click #modDoc': (e, t) ->
+      console.log "Modding a doc"
+      Meteor.call "modRecord"
+
     'click #removeDoc': (e, t) ->
       console.log "Removing a doc"
       Meteor.call "removeRecord"
 
+    'click #dbCommit': (e, t) ->
+      console.log "Committing Records"
+      Meteor.call "makeDbCommit"
 
   Template.collTest.helpers
     dataEntries: () ->
@@ -179,6 +186,7 @@ if Meteor.isServer
   testDb = new Mongo.Collection "testDB"
 
   git = myData.Git "testRepo"
+  dbGit = myData.Git "dbRepo"
 
   Meteor.startup () ->
 
@@ -243,17 +251,19 @@ if Meteor.isServer
 
   addedFile = (file) ->
     # Check if this blob exists
-    myData.findOneStream({ _id: file._id })?.pipe(git._checkFile Meteor.bindEnvironment (err, data) =>
+    myData.findOneStream({ _id: file._id })?.pipe(git._checkFile (err, data, newBlob) =>
       throw err if err
-      if data
-        myData.findOneStream({ _id: file._id })?.pipe(git._writeFile data, Meteor.bindEnvironment (err, data) =>
-          myData.update
-              _id: file._id
-              md5: file.md5
-            ,
-              $set:
-                "metadata.sha1": data.hash
+      if newBlob
+        myData.findOneStream({ _id: file._id })?.pipe(git._writeFile data, (err, data) =>
+          console.log "FileStream written", data
         )
+      if data
+        myData.update
+            _id: file._id
+            md5: file.md5
+          ,
+            $set:
+              "metadata.sha1": data.hash
     )
 
   changedFile = (oldFile, newFile) ->
@@ -272,15 +282,11 @@ if Meteor.isServer
     changed: changedFile
   )
 
-  makeTree = () ->
-    tree = myData.find(
-      md5:
-        $ne: 'd41d8cd98f00b204e9800998ecf8427e'  # md5 sum for zero length file
-      'metadata._Resumable':
-        $exists: false
-      'metadata._Git':
-        $exists: false
-    ).map (f) -> { name: f.filename, mode: myData.gbs.gitModes.file, hash: f.metadata.sha1 }
+  makeFileTree = (collection, query) ->
+    tree = collection.find(query).map (f) ->
+      name: f.filename
+      mode: collection.gbs.gitModes.file
+      hash: f.metadata.sha1
     return tree
 
   Meteor.methods
@@ -290,12 +296,45 @@ if Meteor.isServer
         b: Math.floor 100*Math.random()
       console.log "Added! Count is now: ", testDb.find({}).count()
 
+    modRecord: () ->
+      d = testDb.findOne({})
+      r = Math.random()
+      if r < 1/3
+        d.c = Math.floor 100*Math.random()
+      else if r < 2/3
+        d.b = Math.floor 100*Math.random()
+      else
+        d.a = Math.floor 100*Math.random()
+      testDb.update d._id, d
+      console.log "Modded! Count is now: ", testDb.find({}).count()
+
     removeRecord: () ->
       testDb.remove testDb.findOne({})
       console.log "Removed! Count is now: ", testDb.find({}).count()
 
+    makeDbCommit: () ->
+      treeData = dbGit._makeDbTree testDb, {}
+      commit =
+        author:
+          name: "Vaughn Iverson"
+          email: "vsi@uw.edu"
+        tree: treeData.result.hash
+        message: "Test commit\n"
+      if parent = dbGit._readRef 'refs/heads/master'
+        commit.parent = parent
+      data = dbGit._writeCommit commit
+      dbGit._writeRef 'refs/heads/master', data.result.hash
+      return data
+
     makeCommit: () ->
-      tree = makeTree()
+      tree = makeFileTree(myData,
+        md5:
+          $ne: 'd41d8cd98f00b204e9800998ecf8427e'  # md5 sum for zero length file
+        'metadata._Resumable':
+          $exists: false
+        'metadata._Git':
+          $exists: false
+      )
       treeData = git._writeTree tree
       commit =
         author:
@@ -305,7 +344,6 @@ if Meteor.isServer
         message: "Test commit\n"
       if parent = git._readRef 'refs/heads/master'
         commit.parent = parent
-      else
       data = git._writeCommit commit
       git._writeRef 'refs/heads/master', data.result.hash
       return data
