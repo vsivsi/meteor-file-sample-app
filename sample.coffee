@@ -250,25 +250,25 @@ if Meteor.isServer
     return "objects/#{hash.slice(0,2)}/#{hash.slice(2)}"
 
   addedFile = (file) ->
-    # Check if this blob exists
-    myData.findOneStream({ _id: file._id })?.pipe(git._checkFile (err, data, newBlob) =>
-      throw err if err
-      if newBlob
-        myData.findOneStream({ _id: file._id })?.pipe(git._writeFile data, (err, data) =>
-          console.log "FileStream written", data
-        )
-      if data
-        myData.update
-            _id: file._id
-            md5: file.md5
-          ,
-            $set:
-              "metadata.sha1": data.hash
-    )
+    # # Check if this blob exists
+    # myData.findOneStream({ _id: file._id })?.pipe(git._checkFile (err, data, newBlob) =>
+    #   throw err if err
+    #   if newBlob
+    #     myData.findOneStream({ _id: file._id })?.pipe(git._writeFile data, (err, data) =>
+    #       console.log "FileStream written", data
+    #     )
+    #   if data
+    #     myData.update
+    #         _id: file._id
+    #         md5: file.md5
+    #       ,
+    #         $set:
+    #           "metadata.sha1": data.hash
+    # )
 
   changedFile = (oldFile, newFile) ->
-     if oldFile.md5 isnt newFile.md5
-        addedFileJob newFile
+    #  if oldFile.md5 isnt newFile.md5
+    #     addedFileJob newFile
 
   fileObserve = myData.find(
     md5:
@@ -327,15 +327,23 @@ if Meteor.isServer
       return data
 
     makeCommit: () ->
-      tree = makeFileTree(myData,
+      treeData = git._makeFcTree myData,
         md5:
           $ne: 'd41d8cd98f00b204e9800998ecf8427e'  # md5 sum for zero length file
         'metadata._Resumable':
           $exists: false
         'metadata._Git':
           $exists: false
-      )
-      treeData = git._writeTree tree
+      #
+      # tree = makeFileTree(myData,
+      #   md5:
+      #     $ne: 'd41d8cd98f00b204e9800998ecf8427e'  # md5 sum for zero length file
+      #   'metadata._Resumable':
+      #     $exists: false
+      #   'metadata._Git':
+      #     $exists: false
+      # )
+      # treeData = git._writeTree tree
       commit =
         author:
           name: "Vaughn Iverson"
