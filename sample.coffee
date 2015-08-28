@@ -126,6 +126,10 @@ if Meteor.isClient
       console.log "Committing Records"
       Meteor.call "makeDbCommit"
 
+    'click #branchDb': (e, t) ->
+      console.log "Branching Database"
+      Meteor.call "branchDb"
+
   Template.collTest.helpers
     dataEntries: () ->
       # Reactively populate the table
@@ -320,11 +324,14 @@ if Meteor.isServer
           email: "vsi@uw.edu"
         tree: treeData.result.hash
         message: "Test commit\n"
-      if parent = dbGit._readRef 'refs/heads/master'
+      if parent = dbGit._readHead()
         commit.parent = parent
       data = dbGit._writeCommit commit
       dbGit._writeRef 'refs/heads/master', data.result.hash
       return data
+
+    branchDb: () ->
+      console.log "Branching Database!"
 
     makeCommit: () ->
       treeData = git._makeFcTree myData,
@@ -350,7 +357,7 @@ if Meteor.isServer
           email: "vsi@uw.edu"
         tree: treeData.result.hash
         message: "Test commit\n"
-      if parent = git._readRef 'refs/heads/master'
+      if parent = git._readHead()
         commit.parent = parent
       data = git._writeCommit commit
       git._writeRef 'refs/heads/master', data.result.hash
@@ -358,7 +365,7 @@ if Meteor.isServer
 
     makeTag: () ->
       # Tag the current master branch commit
-      commit = git._readRef 'refs/heads/master'
+      commit = git._readHead()
       unless commit
         commit = Meteor.call('makeCommit').result.hash
       tagName = "TAG_#{Math.floor(Math.random()*10000000).toString(16)}"
