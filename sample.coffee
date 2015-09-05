@@ -36,6 +36,11 @@ if Meteor.isClient
     return
 
   Meteor.startup () ->
+
+    AceEditor.instance "archy", null, (editor) ->
+      editor.insert "Live long and prosper."
+      console.log editor.session.getLength()
+
     ################################
     # Setup resumable.js in the UI
     # When a file is added
@@ -67,6 +72,8 @@ if Meteor.isClient
       myData.resumable.on 'fileError', (file) ->
         console.warn "Error uploading", file.uniqueIdentifier
         Session.set file.uniqueIdentifier, undefined
+
+
 
   # Set up an autorun to keep the X-Auth-Token cookie up-to-date and
   # to update the subscription when the userId changes.
