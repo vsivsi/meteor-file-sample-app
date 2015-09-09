@@ -23,6 +23,8 @@ myData = FileCollection
         return { filename: params[0] }
   ]
 
+testDb = new Mongo.Collection "testDB"
+
 ############################################################
 # Client-only code
 ############################################################
@@ -40,6 +42,11 @@ if Meteor.isClient
     AceEditor.instance "archy", null, (editor) ->
       editor.insert "Live long and prosper."
       console.log editor.session.getLength()
+      console.log editor.session.getDocument()
+      editor.on 'change', (e) ->
+        console.log "Changed!"
+        console.log e
+        console.log editor.getValue()
 
     ################################
     # Setup resumable.js in the UI
@@ -73,14 +80,18 @@ if Meteor.isClient
         console.warn "Error uploading", file.uniqueIdentifier
         Session.set file.uniqueIdentifier, undefined
 
-
-
   # Set up an autorun to keep the X-Auth-Token cookie up-to-date and
   # to update the subscription when the userId changes.
   Tracker.autorun () ->
     userId = Meteor.userId()
     Meteor.subscribe 'allData', userId
     $.cookie 'X-Auth-Token', Accounts._storedLoginToken()
+    Meteor.subscribe 'allDocs', userId, () ->
+      doc = testDb.findOne "Home"
+      unless doc
+        doc = { _id: "Home", doc: "" }
+        testDb.insert doc
+      console.log "Ready!", doc
 
   #####################
   # UI template helpers
@@ -194,8 +205,6 @@ if Meteor.isClient
 
 if Meteor.isServer
 
-  testDb = new Mongo.Collection "testDB"
-
   git = myData.Git "testRepo"
   dbGit = myData.Git "dbRepo"
 
@@ -228,9 +237,23 @@ if Meteor.isServer
     else
       return []
 
+  Meteor.publish 'allDocs', (clientUserId) ->
+    if this.userId is clientUserId
+      return myData.find {}
+    else
+      return []
+
   # Don't allow users to modify the user docs
   Meteor.users.deny
     update: () -> true
+
+  testDb.allow
+    insert: (userId, doc) ->
+      true
+    update: (userId, file, fields) ->
+      true
+    remove: (userId, doc) ->
+      true
 
   # Allow rules for security. Without these, no writes would be allowed by default
   myData.allow
