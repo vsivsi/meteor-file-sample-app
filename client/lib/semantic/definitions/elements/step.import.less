@@ -1,6 +1,6 @@
 /*
   DO NOT MODIFY - This file has been generated and will be regenerated
-  Semantic UI v2.0.7
+  Semantic UI v2.1.7
 */
 /*!
  * # Semantic UI - Step
@@ -106,11 +106,6 @@
   border-radius: @stepsBorderRadius 0em 0em @stepsBorderRadius;
 }
 
-/* Only Step */
-.ui.steps .step:only-child {
-  border-radius: @stepsBorderRadius;
-}
-
 /* Last Step */
 .ui.steps .step:last-child {
   border-radius: 0em @stepsBorderRadius @stepsBorderRadius 0em;
@@ -118,6 +113,11 @@
 .ui.steps .step:last-child {
   border-right: none;
   margin-right: 0em;
+}
+
+/* Only Step */
+.ui.steps .step:only-child {
+  border-radius: @stepsBorderRadius;
 }
 
 
@@ -229,6 +229,10 @@
   border-bottom: none;
   border-radius: 0em 0em @stepsBorderRadius @stepsBorderRadius;
 }
+.ui.vertical.steps .step:only-child {
+  border-radius: @stepsBorderRadius;
+}
+
 
 /* Arrow */
 .ui.vertical.steps .step:after {
@@ -392,7 +396,7 @@
 ---------------*/
 
 /* Tablet Or Below */
-@media only screen and (max-width: @computerBreakpoint) {
+@media only screen and (max-width: @largestTabletScreen) {
 
 .ui[class*="tablet stackable"].steps {
   display: inline-flex;

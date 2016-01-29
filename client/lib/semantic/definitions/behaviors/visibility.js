@@ -1,6 +1,6 @@
 /*
   DO NOT MODIFY - This file has been generated and will be regenerated
-  Semantic UI v2.0.7
+  Semantic UI v2.1.7
 */
 /*!
  * # Semantic UI - Visibility
@@ -1217,4 +1217,4 @@ $.fn.visibility.settings = {
 
 };
 
-})( jQuery, window , document );
+})( jQuery, window, document );
