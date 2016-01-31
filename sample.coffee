@@ -136,7 +136,7 @@ if Meteor.isClient
             'image/png': true
             'image/gif': true
             'image/tiff': true
-         types[this.contentType]?
+         types[this.contentType]? and this.md5 isnt 'd41d8cd98f00b204e9800998ecf8427e'
 
       loginToken: () ->
          Meteor.userId()
