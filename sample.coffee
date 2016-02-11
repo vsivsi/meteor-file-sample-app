@@ -93,7 +93,11 @@ if Meteor.isClient
    Template.collTest.events
       # Wire up the event to remove a file by clicking the `X`
       'click .del-file': (e, t) ->
-         # Just the remove method does it all
+         # If there's an active upload, cancel it
+         if Session.get "#{this._id}"
+            console.warn "Cancelling active upload to remove file! #{this._id}"
+            myData.resumable.removeFile(myData.resumable.getFromUniqueIdentifier "#{this._id}")
+         # Then just remove the file
          myData.remove {_id: this._id}
 
    Template.collTest.helpers
