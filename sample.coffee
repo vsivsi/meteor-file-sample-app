@@ -14,6 +14,14 @@ myData = FileCollection({
    # Define a GET API that uses the md5 sum id files
 )
 
+testObjID = (id, fields) ->
+   console.warn "++++++++++++++++++++++++++"
+   console.log "File Added"
+   console.log "id", typeof id, id, id.toHexString()
+   rec = myData.findOne id
+   console.log "Found file: ", rec
+   console.warn "++++++++++++++++++++++++++"
+
 ############################################################
 # Client-only code
 ############################################################
@@ -61,6 +69,11 @@ if Meteor.isClient
       myData.resumable.on 'fileError', (file) ->
          console.warn "Error uploading", file.uniqueIdentifier
          Session.set file.uniqueIdentifier, undefined
+
+      query = myData.find({})
+
+      handle = query.observeChanges
+         added: testObjID
 
    # Set up an autorun to keep the X-Auth-Token cookie up-to-date and
    # to update the subscription when the userId changes.
@@ -194,3 +207,8 @@ if Meteor.isServer
             if file.metadata?._auth?.owner and userId isnt file.metadata._auth.owner
                return false
             true
+
+      query = myData.find({})
+
+      handle = query.observeChanges
+         added: testObjID
