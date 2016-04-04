@@ -19,6 +19,7 @@ testObjID = (id, fields) ->
    console.log "File Added"
    console.log "id", typeof id, id, id.toHexString()
    rec = myData.findOne id
+   # rec = myData.findOne { _id: id }
    console.log "Found file: ", rec
    console.warn "++++++++++++++++++++++++++"
 
