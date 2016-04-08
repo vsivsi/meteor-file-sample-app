@@ -10,8 +10,51 @@
 myData = FileCollection({
    resumable: true,     # Enable the resumable.js compatible chunked file upload interface
    resumableIndexName: 'test',  # Don't use the default MongoDB index name, which is 94 chars long
-   http: [ { method: 'get', path: '/md5/:md5', lookup: (params, query) -> return { md5: params.md5 }}]}
-   # Define a GET API that uses the md5 sum id files
+   http: [
+            {
+               method: 'get'
+               path: '/md5/:md5'
+               lookup: (params, query) -> return { md5: params.md5 }
+            }
+            {
+               method: 'head'
+               path: '/_resumable'
+               lookup: (params, query) -> return {}
+               handler: (req, res, next) ->
+                  # console.log('************** Handling Post Request ***********')
+                  if req?.headers?.origin
+                     res.setHeader 'Access-Control-Allow-Origin', req.headers.origin
+                     res.setHeader 'Access-Control-Allow-Credentials', true
+                  next()
+            }
+            {
+               method: 'post'
+               path: '/_resumable'
+               lookup: (params, query) -> return {}
+               handler: (req, res, next) ->
+                  # console.log('************** Handling Post Request ***********')
+                  if req?.headers?.origin
+                     res.setHeader 'Access-Control-Allow-Origin', req.headers.origin
+                     res.setHeader 'Access-Control-Allow-Credentials', true
+                  next()
+            }
+            {
+               method: 'options'
+               path: '/_resumable'
+               lookup: (params, query) -> return {}
+               handler: (req, res, next) ->
+                  # console.log('************** Handling Options Request ***********')
+                  if req?.headers?.origin
+                     res.writeHead 200,
+                        'Content-Type': 'text/plain'
+                        'Access-Control-Allow-Origin': req.headers.origin
+                        'Access-Control-Allow-Credentials': true
+                        'Access-Control-Allow-Headers': 'x-auth-token, user-agent'
+                        'Access-Control-Allow-Methods': 'GET, PUT, POST, HEAD'
+                     res.end()
+            }
+         ]
+   }
 )
 
 ############################################################
