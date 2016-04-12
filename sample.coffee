@@ -6,62 +6,18 @@
 
 # Both client and server
 
-# Default collection name is 'fs'
-myData = FileCollection({
-   resumable: true,     # Enable the resumable.js compatible chunked file upload interface
-   resumableIndexName: 'test',  # Don't use the default MongoDB index name, which is 94 chars long
-   http: [
-            {
-               method: 'get'
-               path: '/md5/:md5'
-               lookup: (params, query) -> return { md5: params.md5 }
-            }
-            {
-               method: 'head'
-               path: '/_resumable'
-               lookup: (params, query) -> return {}
-               handler: (req, res, next) ->
-                  # console.log('************** Handling Post Request ***********')
-                  if req?.headers?.origin
-                     res.setHeader 'Access-Control-Allow-Origin', req.headers.origin
-                     res.setHeader 'Access-Control-Allow-Credentials', true
-                  next()
-            }
-            {
-               method: 'post'
-               path: '/_resumable'
-               lookup: (params, query) -> return {}
-               handler: (req, res, next) ->
-                  # console.log('************** Handling Post Request ***********')
-                  if req?.headers?.origin
-                     res.setHeader 'Access-Control-Allow-Origin', req.headers.origin
-                     res.setHeader 'Access-Control-Allow-Credentials', true
-                  next()
-            }
-            {
-               method: 'options'
-               path: '/_resumable'
-               lookup: (params, query) -> return {}
-               handler: (req, res, next) ->
-                  # console.log('************** Handling Options Request ***********')
-                  if req?.headers?.origin
-                     res.writeHead 200,
-                        'Content-Type': 'text/plain'
-                        'Access-Control-Allow-Origin': req.headers.origin
-                        'Access-Control-Allow-Credentials': true
-                        'Access-Control-Allow-Headers': 'x-auth-token, user-agent'
-                        'Access-Control-Allow-Methods': 'GET, PUT, POST, HEAD'
-                     res.end()
-            }
-         ]
-   }
-)
-
 ############################################################
 # Client-only code
 ############################################################
 
 if Meteor.isClient
+
+   # Default collection name is 'fs'
+   myData = FileCollection({
+      resumable: true,     # Enable the resumable.js compatible chunked file upload interface
+      baseURL: 'http://127.0.0.1:3000/gridfs/fs',
+      }
+   )
 
    # This assigns a file drop zone to the "file table"
    # once DOM is ready so jQuery can see it
@@ -197,6 +153,57 @@ if Meteor.isClient
 ############################################################
 
 if Meteor.isServer
+
+   # Default collection name is 'fs'
+   myData = FileCollection({
+      resumable: true,     # Enable the resumable.js compatible chunked file upload interface
+      resumableIndexName: 'test',  # Don't use the default MongoDB index name, which is 94 chars long
+      http: [
+               {
+                  method: 'get'
+                  path: '/md5/:md5'
+                  lookup: (params, query) -> return { md5: params.md5 }
+               }
+               {
+                  method: 'head'
+                  path: '/_resumable'
+                  lookup: (params, query) -> return {}
+                  handler: (req, res, next) ->
+                     # console.log('************** Handling Post Request ***********')
+                     if req?.headers?.origin
+                        res.setHeader 'Access-Control-Allow-Origin', req.headers.origin
+                        res.setHeader 'Access-Control-Allow-Credentials', true
+                     next()
+               }
+               {
+                  method: 'post'
+                  path: '/_resumable'
+                  lookup: (params, query) -> return {}
+                  handler: (req, res, next) ->
+                     # console.log('************** Handling Post Request ***********')
+                     if req?.headers?.origin
+                        res.setHeader 'Access-Control-Allow-Origin', req.headers.origin
+                        res.setHeader 'Access-Control-Allow-Credentials', true
+                     next()
+               }
+               {
+                  method: 'options'
+                  path: '/_resumable'
+                  lookup: (params, query) -> return {}
+                  handler: (req, res, next) ->
+                     # console.log('************** Handling Options Request ***********')
+                     if req?.headers?.origin
+                        res.writeHead 200,
+                           'Content-Type': 'text/plain'
+                           'Access-Control-Allow-Origin': req.headers.origin
+                           'Access-Control-Allow-Credentials': true
+                           'Access-Control-Allow-Headers': 'x-auth-token, user-agent'
+                           'Access-Control-Allow-Methods': 'GET, PUT, POST, HEAD'
+                        res.end()
+               }
+            ]
+      }
+   )
 
    Meteor.startup () ->
 
