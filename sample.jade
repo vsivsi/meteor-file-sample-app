@@ -35,7 +35,10 @@ template(name="collTest")
         each dataEntries
           tr
             td
-              a(href="{{link}}?download=true") {{shortFilename 56}}
+              if length
+                a(href="{{link}}?download=true") {{shortFilename 56}}
+              else
+                {{shortFilename 56}}
               button.ui.mini.basic.icon.right.floated.button.close.del-file(type="button" aria-hidden="true")
                 i.remove.icon
             td {{truncateId id}}
