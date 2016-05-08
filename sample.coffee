@@ -67,7 +67,8 @@ if Meteor.isClient
    Tracker.autorun () ->
       userId = Meteor.userId()
       Meteor.subscribe 'allData', userId
-      $.cookie 'X-Auth-Token', Accounts._storedLoginToken()
+      $.cookie 'X-Auth-Token', Accounts._storedLoginToken(),
+        path: '/'
 
    #####################
    # UI template helpers
