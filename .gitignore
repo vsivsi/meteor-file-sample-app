@@ -1,2 +1,4 @@
-smart.lock
+.custom.semantic.json
+client/lib/semantic-ui
+!custom.semantic.json
 node_modules
